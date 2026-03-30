@@ -1,0 +1,26 @@
+{
+  "name": "nexus-cpa-intelligence",
+  "version": "1.0.0",
+  "description": "Nexus CPA Intelligence Engine — MaxBounty + Bing keyword intelligence + AI report synthesis",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js",
+    "deploy-schema": "node scripts/deploy-schema.js",
+    "bing-auth": "node scripts/bing-oauth.js",
+    "jobs": "node scripts/cron.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "axios": "^1.6.8",
+    "cors": "^2.8.6",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "node-cron": "^3.0.3",
+    "openai": "^4.47.0",
+    "pg": "^8.11.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  }
+}
