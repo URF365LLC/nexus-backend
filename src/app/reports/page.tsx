@@ -1,12 +1,13 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { Sparkles, ArrowLeft, Clock, CheckCircle2, AlertTriangle, Loader2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Sparkles, ArrowLeft, Clock, CheckCircle2, AlertTriangle, Loader2, Wand2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import GlassCard from '@/components/GlassCard';
 import OfferBriefDrawer from '@/components/OfferBriefDrawer';
 import { cn } from '@/lib/utils';
+import { Offer } from '@/types';
 
 interface Report {
   id: string;
@@ -49,7 +50,7 @@ export default function ReportsPage() {
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [briefOffer, setBriefOffer] = useState<{ id: string; name: string; vertical: string; tier: string } | null>(null);
+  const [briefOffer, setBriefOffer] = useState<Offer | null>(null);
 
   useEffect(() => {
     const fetchReports = async () => {
@@ -72,7 +73,6 @@ export default function ReportsPage() {
 
   const completed  = reports.filter(r => r.status === 'completed');
   const generating = reports.filter(r => r.status === 'generating');
-  const pending    = reports.filter(r => r.status === 'pending');
   const failed     = reports.filter(r => r.status === 'failed');
 
   return (
@@ -137,7 +137,7 @@ export default function ReportsPage() {
                   transition={{ delay: Math.min(i * 0.04, 0.5) }}
                   onClick={() => {
                     if (report.status === 'completed') {
-                      setBriefOffer({ id: report.offer_id, name: report.offer_name, vertical: report.vertical, tier: report.tier });
+                      setBriefOffer({ id: report.offer_id, name: report.offer_name, vertical: report.vertical, tier: report.tier } as Offer);
                     }
                   }}
                   className={cn(
@@ -185,6 +185,18 @@ export default function ReportsPage() {
                     {report.status}
                   </span>
 
+
+                  {/* Launch Studio */}
+                  {report.status === 'completed' && (
+                    <Link
+                      href={`/studio`}
+                      onClick={e => e.stopPropagation()}
+                      className="shrink-0 px-3 py-1.5 rounded-lg bg-primary/20 hover:bg-primary text-primary hover:text-black text-[9px] font-bold uppercase tracking-widest transition-all flex items-center gap-1.5 border border-primary/20"
+                    >
+                      <Wand2 size={10} />
+                      Studio
+                    </Link>
+                  )}
 
                   {/* Time */}
                   <div className="text-[10px] text-gray-600 font-mono flex items-center gap-1 shrink-0 w-20 justify-end">

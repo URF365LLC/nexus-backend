@@ -10,7 +10,8 @@ import {
   Activity,
   Shield,
   Sparkles,
-  Zap
+  Zap,
+  Wand2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -31,6 +32,7 @@ export default function Sidebar() {
         <NavItem href="/campaigns" icon={<Target size={18} />} label="Campaign Matrix" active={pathname === '/campaigns'} />
         <NavItem href="/keywords" icon={<Search size={18} />} label="Keyword Alpha" active={pathname === '/keywords'} />
         <NavItem href="/reports" icon={<Sparkles size={18} />} label="Synthesis" active={pathname === '/reports'} />
+        <NavItem href="/studio" icon={<Wand2 size={18} />} label="Creative Studio" active={pathname.startsWith('/studio')} />
         <NavItem href="/compliance" icon={<Shield size={18} />} label="Compliance" active={pathname === '/compliance'} />
         <NavItem href="/sync-terminal" icon={<Activity size={18} />} label="Sync Terminal" active={pathname === '/sync-terminal'} />
       </nav>

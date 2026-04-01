@@ -7,11 +7,11 @@ import PropertiesPanel from '@/components/studio/editor/PropertiesPanel';
 import ContentBlockLibrary from '@/components/studio/editor/ContentBlockLibrary';
 import { useFunnelStore } from '@/components/studio/editor/funnelStore';
 import { 
-  Save, 
-  Play, 
-  Image as ImageIcon, 
-  Cpu, 
-  Layout, 
+  Save,
+  Play,
+  Image as ImageIcon,
+  Cpu,
+  LayoutPanelTop,
   ChevronLeft,
   Loader2,
   CheckCircle2,
@@ -101,7 +101,7 @@ export default function StudioWorkbench() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-[#050505] text-white overflow-hidden">
+    <div className="flex flex-col h-screen bg-[#050505] text-white overflow-hidden ml-[var(--sidebar-w)]">
       {/* Top Header */}
       <header className="h-16 border-b border-white/10 flex items-center justify-between px-6 bg-black/40 backdrop-blur-xl z-50">
         <div className="flex items-center space-x-4">
@@ -123,7 +123,7 @@ export default function StudioWorkbench() {
         <div className="flex items-center space-x-3">
           <div className="flex bg-white/5 p-1 rounded-xl border border-white/10 mr-4">
              <button className="px-4 py-1.5 rounded-lg bg-primary text-black text-xs font-bold flex items-center gap-2">
-                <Layout className="w-4 h-4" /> Desktop
+                <LayoutPanelTop className="w-4 h-4" /> Desktop
              </button>
              <button className="px-4 py-1.5 rounded-lg text-gray-500 text-xs font-bold hover:text-white transition-colors">
                 Mobile
