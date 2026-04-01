@@ -70,14 +70,19 @@ router.get('/tiers', async (req, res) => {
 
 // GET /api/scores/history/:offerId — score trend for one offer
 router.get('/history/:offerId', async (req, res) => {
+    const { offerId } = req.params;
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!UUID_RE.test(offerId)) {
+        return res.status(400).json({ success: false, error: 'Invalid offer ID format' });
+    }
     try {
         const history = await db.all(`
             SELECT score_total, tier, epc_at_score, cpc_at_score, scored_at
             FROM offer_score_history
-            WHERE offer_id = $1
+            WHERE offer_id = $1::uuid
             ORDER BY scored_at DESC
             LIMIT 30
-        `, [req.params.offerId]);
+        `, [offerId]);
         res.json({ success: true, data: history });
     } catch (err) {
         console.error('[API/scores] GET /history/:offerId:', err.message);
