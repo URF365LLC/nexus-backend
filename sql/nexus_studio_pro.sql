@@ -4,22 +4,28 @@
 -- ============================================================================
 
 -- ENUMS for Studio
-CREATE TYPE studio_project_status AS ENUM (
-  'draft', 'simulating', 'review_pending', 'approved', 'deployed', 'archived'
-);
-
-CREATE TYPE blueprint_persona AS ENUM (
-  'ogilvy', 'halbert', 'schwartz', 'hopkins', 'custom'
-);
-
-CREATE TYPE asset_type AS ENUM (
-  'image_realistic', 'headline', 'subheadline', 'cta_button', 'video_motion', 'body_copy'
-);
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'studio_project_status') THEN
+    CREATE TYPE studio_project_status AS ENUM (
+      'draft', 'simulating', 'review_pending', 'approved', 'deployed', 'archived'
+    );
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'blueprint_persona') THEN
+    CREATE TYPE blueprint_persona AS ENUM (
+      'ogilvy', 'halbert', 'schwartz', 'hopkins', 'custom'
+    );
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'asset_type') THEN
+    CREATE TYPE asset_type AS ENUM (
+      'image_realistic', 'headline', 'subheadline', 'cta_button', 'video_motion', 'body_copy'
+    );
+  END IF;
+END $$;
 
 -- ----------------------------------------------------------------------------
 -- studio_projects — The parent entity for a creative production lifecycle
 -- ----------------------------------------------------------------------------
-CREATE TABLE studio_projects (
+CREATE TABLE IF NOT EXISTS studio_projects (
   id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   offer_id        UUID NOT NULL REFERENCES mb_offers(id) ON DELETE CASCADE,
   name            TEXT NOT NULL,
