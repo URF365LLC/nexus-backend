@@ -186,6 +186,17 @@ export default function ReportsPage() {
                   </span>
 
 
+                  {/* Read link */}
+                  {report.status === 'completed' && (
+                    <Link
+                      href="/reports"
+                      onClick={e => e.stopPropagation()}
+                      className="shrink-0 text-[10px] font-bold text-primary hover:text-white transition-colors"
+                    >
+                      Read →
+                    </Link>
+                  )}
+
                   {/* Launch Studio */}
                   {report.status === 'completed' && (
                     <Link

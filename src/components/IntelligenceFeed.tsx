@@ -13,6 +13,7 @@ interface FeedItem {
   content: string;
   timestamp: string;
   priority?: 'high' | 'medium' | 'low';
+  href?: string;
 }
 
 interface ReportRecord {
@@ -60,6 +61,7 @@ function mapReports(reports: ReportRecord[]): FeedItem[] {
         : `AI report ready for "${r.offer_name}". Tier ${r.tier} — score ${r.score_total}.`,
       timestamp: timeAgo(r.generated_at),
       priority: isFailed ? 'high' : r.tier === 'A' ? 'medium' : undefined,
+      href: isFailed ? undefined : '/reports',
     };
   });
 }
@@ -143,6 +145,34 @@ export default function IntelligenceFeed({ className }: { className?: string }) 
               transition={{ delay: idx * 0.1 }}
               className="group relative"
             >
+              {item.href ? (
+                <Link href={item.href} className="flex gap-4 p-3 rounded-xl hover:bg-white/[0.03] transition-colors border border-transparent hover:border-white/5 cursor-pointer">
+                  <div className={cn(
+                    "mt-0.5 p-2 rounded-lg bg-white/5 border border-white/5 text-gray-400 group-hover:text-primary transition-colors h-fit",
+                    item.priority === 'high' && "text-amber-500/80 bg-amber-500/5"
+                  )}>
+                    {getIcon(item.type)}
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex justify-between items-start mb-1 text-[10px] font-bold uppercase tracking-tighter text-gray-500">
+                      <span className={cn(
+                        item.type === 'report' && "text-blue-400",
+                        item.type === 'job' && "text-purple-400"
+                      )}>
+                        {item.type}
+                      </span>
+                      <span className="font-mono flex items-center gap-1 opacity-60">
+                        <Clock size={10} />
+                        {item.timestamp}
+                      </span>
+                    </div>
+                    <p className="text-sm leading-relaxed font-medium text-gray-300">
+                      {item.content}
+                    </p>
+                  </div>
+                </Link>
+              ) : (
               <div className="flex gap-4 p-3 rounded-xl hover:bg-white/[0.03] transition-colors border border-transparent hover:border-white/5">
                 <div className={cn(
                   "mt-0.5 p-2 rounded-lg bg-white/5 border border-white/5 text-gray-400 group-hover:text-primary transition-colors h-fit",
@@ -169,6 +199,7 @@ export default function IntelligenceFeed({ className }: { className?: string }) 
                   </p>
                 </div>
               </div>
+              )}
             </motion.div>
           ))}
         </AnimatePresence>
