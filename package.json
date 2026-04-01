@@ -5,6 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
+    "build": "echo \"Building Backend...\"",
     "dev": "nodemon server.js",
     "deploy-schema": "node scripts/deploy-schema.js",
     "bing-auth": "node scripts/bing-oauth.js",
