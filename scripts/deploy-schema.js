@@ -74,8 +74,9 @@ async function deploy() {
     console.log(`  Database: ${process.env.PG_DATABASE}`);
 
     try {
-        await runSqlFile('nexus_schema.sql');
+// await runSqlFile('nexus_schema.sql');
         await runSqlFile('nexus_schema_v1_1_migration.sql');
+        await runSqlFile('nexus_studio_pro.sql');
 
         console.log('\n═══════════════════════════════════════════════════════════');
         console.log('  Deployment complete. Nexus schema is live.');

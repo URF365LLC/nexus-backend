@@ -22,14 +22,7 @@ const { db } = require('../services/db');
  */
 router.get('/', async (req, res) => {
     try {
-        const [
-            tierRows,
-            topOffers,
-            kwCoverage,
-            reportCounts,
-            jobLastRuns,
-            systemStats,
-        ] = await Promise.all([
+        const results = await Promise.allSettled([
 
             // Tier distribution
             db.all(`
@@ -58,7 +51,7 @@ router.get('/', async (req, res) => {
                      WHERE k.offer_id = o.id AND k.is_negative = FALSE) AS keyword_count,
                     (SELECT COUNT(*) FROM kw_keywords k
                      JOIN kw_metrics m ON m.keyword_id = k.id
-                     WHERE k.offer_id = o.id AND k.is_validated = TRUE
+                     WHERE k.offer_id = o.id
                        AND m.avg_monthly_searches > 0) AS validated_kw_count,
                     (SELECT status FROM report_intelligence r
                      WHERE r.offer_id = o.id ORDER BY r.version DESC LIMIT 1) AS report_status
@@ -75,13 +68,14 @@ router.get('/', async (req, res) => {
                     COUNT(DISTINCT o.id)                                      AS total_offers,
                     COUNT(DISTINCT k.offer_id)                                AS offers_with_keywords,
                     COUNT(k.id)                                               AS total_keywords,
-                    COUNT(k.id) FILTER (WHERE k.is_validated = TRUE)          AS validated_keywords,
+                    COUNT(k.id) FILTER (WHERE m.avg_monthly_searches > 0)          AS validated_keywords,
                     ROUND(
                         COUNT(k.id)::numeric /
                         NULLIF(COUNT(DISTINCT k.offer_id), 0), 0
                     )                                                          AS avg_keywords_per_offer
                 FROM mb_offers o
                 LEFT JOIN kw_keywords k ON k.offer_id = o.id AND k.is_negative = FALSE
+                LEFT JOIN kw_metrics m ON m.keyword_id = k.id
                 WHERE o.status = 'active' AND o.passes_filter = TRUE
             `),
 
@@ -127,6 +121,28 @@ router.get('/', async (req, res) => {
             `),
         ]);
 
+        const getValue = (i, fallback) =>
+            results[i].status === 'fulfilled' ? results[i].value : (
+                console.error(`[API/dashboard] query[${i}] failed:`, results[i].reason?.message),
+                fallback
+            );
+
+        const [
+            tierRows,
+            topOffers,
+            kwCoverage,
+            reportCounts,
+            jobLastRuns,
+            systemStats,
+        ] = [
+            getValue(0, []),
+            getValue(1, []),
+            getValue(2, null),
+            getValue(3, null),
+            getValue(4, []),
+            getValue(5, null),
+        ];
+
         // Reshape tier rows into a keyed object
         const tiers = {};
         for (const row of tierRows) {
@@ -160,7 +176,7 @@ router.get('/', async (req, res) => {
         });
     } catch (err) {
         console.error('[API/dashboard] GET /:', err.message);
-        res.status(500).json({ success: false, error: err.message });
+        res.status(500).json({ success: false, error: 'Internal server error' });
     }
 });
 

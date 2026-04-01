@@ -2,12 +2,17 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const rateLimit = require('express-rate-limit');
 const { requireApiKey } = require('./middleware/auth');
 
 const app  = express();
 const port = process.env.PORT || 3001;
 
-app.use(cors());
+app.use(cors({
+    origin: process.env.CORS_ORIGIN || 'https://nexus.komedia-ltd-co.com',
+    methods: ['GET', 'POST'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Api-Key'],
+}));
 app.use(express.json());
 
 // ── Health check (public — Railway probe hits this) ───────────────────────
@@ -15,7 +20,17 @@ app.get('/health', (req, res) => {
     res.json({ status: 'ok', service: 'nexus-cpa-intelligence', ts: new Date().toISOString() });
 });
 
+// ── Rate limiting ────────────────────────────────────────────────────────
+const syncLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 5,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { success: false, error: 'Too many sync requests, please try again later.' },
+});
+
 // ── API routes (auth-gated) ───────────────────────────────────────────────
+app.use('/api/sync', syncLimiter);
 app.use('/api', requireApiKey, require('./api'));
 
 // ── 404 ───────────────────────────────────────────────────────────────────

@@ -7,7 +7,9 @@ const { scoreSingleOffer }  = require('../services/scoringEngine');
 // GET /api/offers — list qualified offers with scores
 router.get('/', async (req, res) => {
     try {
-        const { tier, limit = 50, offset = 0, vertical } = req.query;
+        const { tier, vertical } = req.query;
+        const limit  = Math.min(Math.max(parseInt(req.query.limit  ?? '50',  10) || 50,  1), 200);
+        const offset = Math.max(parseInt(req.query.offset ?? '0',   10) || 0, 0);
 
         let where = `WHERE o.status = 'active' AND o.passes_filter = TRUE`;
         const params = [];
@@ -22,7 +24,7 @@ router.get('/', async (req, res) => {
             where += ` AND o.vertical ILIKE $${params.length}`;
         }
 
-        params.push(parseInt(limit), parseInt(offset));
+        params.push(limit, offset);
 
         const offers = await db.all(`
             SELECT
@@ -32,6 +34,8 @@ router.get('/', async (req, res) => {
                 o.traffic_search, o.traffic_social, o.traffic_native,
                 o.reversal_rate, o.epc_velocity, o.daily_cap, o.has_cap,
                 o.affiliate_status, o.last_synced_at,
+                (SELECT COUNT(*) FROM kw_keywords k
+                 WHERE k.offer_id = o.id AND k.is_negative = FALSE) AS keyword_count,
                 s.score_total, s.tier, s.confidence_score, s.data_completeness,
                 s.is_bootstrap_mode, s.cvr_source,
                 s.expected_profit_per_click, s.expected_value_bootstrap,
@@ -58,19 +62,50 @@ router.get('/', async (req, res) => {
         });
     } catch (err) {
         console.error('[API/offers] GET /:', err.message);
-        res.status(500).json({ success: false, error: err.message });
+        res.status(500).json({ success: false, error: 'Internal server error' });
+    }
+});
+
+// GET /api/offers/compliance — list active offers with compliance constraint details
+router.get('/compliance', async (req, res) => {
+    try {
+        const offers = await db.all(`
+            SELECT
+                o.id, o.mb_campaign_id, o.name, o.vertical,
+                o.search_restriction, o.email_rules, o.email_subject_lines, o.email_from_lines,
+                o.suppression_required, o.traffic_search, o.traffic_social, o.traffic_native,
+                o.traffic_display, o.traffic_email, o.traffic_mobile, o.traffic_push, o.os_list,
+                o.geo_filtering,
+                ARRAY_REMOVE(ARRAY_AGG(geo.country_code), NULL) AS allowed_countries
+            FROM mb_offers o
+            LEFT JOIN mb_offer_geo geo ON o.id = geo.offer_id
+            WHERE o.status = 'active'
+            GROUP BY o.id
+            ORDER BY o.name ASC
+        `);
+
+        res.json({ success: true, data: offers });
+    } catch (err) {
+        console.error('[API/offers] GET /compliance:', err.message);
+        res.status(500).json({ success: false, error: 'Internal server error' });
     }
 });
 
 // GET /api/offers/:id — single offer with full detail
 router.get('/:id', async (req, res) => {
+    const rawId = req.params.id;
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawId);
+    const isInt  = /^\d+$/.test(rawId);
+    if (!isUuid && !isInt) {
+        return res.status(400).json({ success: false, error: 'Invalid offer ID' });
+    }
     try {
-        const offer = await db.get(`
-            SELECT o.*, s.*
-            FROM mb_offers o
-            LEFT JOIN offer_scores s ON s.offer_id = o.id
-            WHERE o.id = $1 OR o.mb_campaign_id = $1::integer
-        `, [req.params.id]);
+        const offer = await db.get(
+            isUuid
+                ? `SELECT o.*, s.* FROM mb_offers o LEFT JOIN offer_scores s ON s.offer_id = o.id WHERE o.id = $1::uuid`
+                : `SELECT o.*, s.* FROM mb_offers o LEFT JOIN offer_scores s ON s.offer_id = o.id WHERE o.mb_campaign_id = $1`,
+            [rawId]
+        );
 
         if (!offer) return res.status(404).json({ success: false, error: 'Offer not found' });
 
@@ -90,29 +125,41 @@ router.get('/:id', async (req, res) => {
         });
     } catch (err) {
         console.error('[API/offers] GET /:id:', err.message);
-        res.status(500).json({ success: false, error: err.message });
+        res.status(500).json({ success: false, error: 'Internal server error' });
     }
 });
 
 // POST /api/offers/:id/filter — re-run filter on a single offer
 router.post('/:id/filter', async (req, res) => {
+    const rawId = req.params.id;
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawId);
+    const isInt  = /^\d+$/.test(rawId);
+    if (!isUuid && !isInt) {
+        return res.status(400).json({ success: false, error: 'Invalid offer ID' });
+    }
     try {
-        const result = await filterSingleOffer(req.params.id);
+        const result = await filterSingleOffer(rawId);
         if (!result) return res.status(404).json({ success: false, error: 'Offer not found' });
         res.json({ success: true, data: result });
     } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+        res.status(500).json({ success: false, error: 'Internal server error' });
     }
 });
 
 // POST /api/offers/:id/score — re-score a single offer
 router.post('/:id/score', async (req, res) => {
+    const rawId = req.params.id;
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawId);
+    const isInt  = /^\d+$/.test(rawId);
+    if (!isUuid && !isInt) {
+        return res.status(400).json({ success: false, error: 'Invalid offer ID' });
+    }
     try {
-        const result = await scoreSingleOffer(req.params.id);
+        const result = await scoreSingleOffer(rawId);
         if (!result) return res.status(404).json({ success: false, error: 'Offer not found' });
         res.json({ success: true, data: result });
     } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+        res.status(500).json({ success: false, error: 'Internal server error' });
     }
 });
 

@@ -5,16 +5,22 @@ const { db } = require('../services/db');
 // GET /api/scores — top scored offers summary
 router.get('/', async (req, res) => {
     try {
-        const { tier, limit = 25 } = req.query;
+        const { tier } = req.query;
+        const limit = Math.min(Math.max(parseInt(req.query.limit ?? '25', 10) || 25, 1), 200);
         const params = [];
         let tierFilter = '';
+
+        const VALID_TIERS = ['S', 'A', 'B', 'C', 'D', 'F'];
+        if (tier && !VALID_TIERS.includes(tier.toUpperCase())) {
+            return res.status(400).json({ success: false, error: 'Invalid tier. Must be one of: S, A, B, C, D, F' });
+        }
 
         if (tier) {
             params.push(tier.toUpperCase());
             tierFilter = `AND s.tier = $1`;
         }
 
-        params.push(parseInt(limit));
+        params.push(limit);
 
         const scores = await db.all(`
             SELECT
@@ -37,7 +43,8 @@ router.get('/', async (req, res) => {
 
         res.json({ success: true, data: scores });
     } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+        console.error('[API/scores] GET /:', err.message);
+        res.status(500).json({ success: false, error: 'Internal server error' });
     }
 });
 
@@ -56,7 +63,8 @@ router.get('/tiers', async (req, res) => {
         `);
         res.json({ success: true, data: tiers });
     } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+        console.error('[API/scores] GET /tiers:', err.message);
+        res.status(500).json({ success: false, error: 'Internal server error' });
     }
 });
 
@@ -72,7 +80,8 @@ router.get('/history/:offerId', async (req, res) => {
         `, [req.params.offerId]);
         res.json({ success: true, data: history });
     } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+        console.error('[API/scores] GET /history/:offerId:', err.message);
+        res.status(500).json({ success: false, error: 'Internal server error' });
     }
 });
 

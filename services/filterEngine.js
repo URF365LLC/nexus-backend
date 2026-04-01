@@ -25,6 +25,11 @@ async function loadThresholds() {
 
     const cfg = Object.fromEntries(rows.map(r => [r.key, r.value]));
 
+    // M10 — Warn when sys_config is empty so operators know thresholds aren't DB-driven
+    if (rows.length === 0) {
+        console.warn('[FilterEngine] WARNING: sys_config returned 0 threshold rows. Falling back to hardcoded defaults. Check that sys_config is seeded.');
+    }
+
     return {
         minEpc:       parseFloat(cfg.min_epc_threshold)    || 0.50,
         minPayout:    parseFloat(cfg.min_payout_threshold) || 5.00,

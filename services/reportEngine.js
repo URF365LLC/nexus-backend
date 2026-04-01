@@ -18,8 +18,8 @@ const { db }    = require('./db');
 const anthropic   = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 const PPLX_KEY    = process.env.PERPLEXITY_API_KEY;
 const PPLX_URL    = 'https://api.perplexity.ai/chat/completions';
-const PPLX_MODEL  = 'sonar-pro';
-const CLAUDE_MODEL = 'claude-opus-4-6';
+const PPLX_MODEL   = 'sonar-pro';
+const CLAUDE_MODEL = process.env.REPORT_MODEL || 'claude-opus-4-6';
 
 // ── Stage 1: Perplexity research ─────────────────────────────────────────────
 async function researchOffer(offer, score) {
@@ -399,6 +399,17 @@ async function storeReport(offer, score, parsed, fullMd, elapsedMs, inputTokens,
 async function generateOfferReport(offer) {
     console.log(`\n[ReportEngine] Processing: ${offer.name}`);
 
+    // Mark as generating so the UI can show in-progress state.
+    // The caller's catch block is responsible for flipping to 'failed' on error.
+    await db.run(`
+        INSERT INTO report_intelligence (offer_id, status, generated_by, generated_at)
+        VALUES ($1, 'generating', $2, NOW())
+        ON CONFLICT ON CONSTRAINT report_intelligence_offer_id_key
+        DO UPDATE SET status = 'generating', updated_at = NOW()
+    `, [offer.id, `perplexity+${CLAUDE_MODEL}`]).catch(err =>
+        console.error(`  [ReportEngine] Could not set generating status: ${err.message}`)
+    );
+
     // Load score
     const score = await db.get(`
         SELECT s.*, s.id as score_id
@@ -412,9 +423,9 @@ async function generateOfferReport(offer) {
         FROM v_offer_keyword_summary WHERE offer_id = $1
     `, [offer.id]);
 
-    // Load intent-weighted validated keywords for report context.
+    // Load intent-weighted keywords for report context.
     // Transactional first (highest CPA conversion probability), then commercial,
-    // then informational. Only Bing-validated (is_validated = TRUE) feed the prompt.
+    // then informational. Keywords with search volume data feed the prompt.
     const kwByIntent = await db.all(`
         SELECT kw.keyword, kw.intent,
                m.avg_monthly_searches, m.competition_level,
@@ -422,7 +433,7 @@ async function generateOfferReport(offer) {
         FROM kw_keywords kw
         JOIN kw_metrics m ON m.keyword_id = kw.id
         WHERE kw.offer_id = $1
-          AND kw.is_validated = TRUE
+          AND kw.is_negative = FALSE
           AND m.avg_monthly_searches > 0
         ORDER BY
             CASE kw.intent
@@ -468,6 +479,18 @@ async function generateAllReports(options = {}) {
     const { forceRegenerate = false, limit = 50 } = options;
 
     console.log('[ReportEngine] Starting report generation...');
+
+    // Flip any records stuck in 'generating' for > 15 minutes to 'failed'.
+    // These are reports where the process crashed or was killed mid-run.
+    const stuck = await db.run(`
+        UPDATE report_intelligence
+        SET status = 'failed', updated_at = NOW()
+        WHERE status = 'generating'
+          AND updated_at < NOW() - INTERVAL '15 minutes'
+    `).catch(err => console.error('[ReportEngine] Stuck watchdog failed:', err.message));
+    if (stuck?.rowCount > 0) {
+        console.log(`[ReportEngine] Flipped ${stuck.rowCount} stuck 'generating' record(s) to 'failed'`);
+    }
 
     const freshCutoff = forceRegenerate
         ? '1970-01-01'

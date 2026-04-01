@@ -28,6 +28,10 @@ const SERVICE       = 'bing';
 const LABEL         = 'ads_oauth';
 const BUFFER_MS     = 5 * 60 * 1000; // refresh 5 min before expiry
 
+// H5 — In-memory cache so rapid successive calls skip the DB SELECT
+let _cache = { token: null, expiresAt: 0 };
+function _cacheIsValid() { return _cache.token && Date.now() + BUFFER_MS < _cache.expiresAt; }
+
 // ── Seed DB credentials from .env on first run ────────────────────────────
 async function ensureCredentialsSeeded() {
     const existing = await db.get(
@@ -54,7 +58,10 @@ async function ensureCredentialsSeeded() {
 async function getAccessToken() {
     await ensureCredentialsSeeded();
 
-    // Fast path: check without lock
+    // Fast path 0: in-memory cache (H5)
+    if (_cacheIsValid()) return _cache.token;
+
+    // Fast path 1: check DB without lock
     const cred = await db.get(
         `SELECT access_token, expires_at FROM sys_api_credentials
          WHERE service = $1 AND label = $2 AND is_active = TRUE`,
@@ -117,6 +124,8 @@ async function getAccessToken() {
         const expiresIn = Math.round((json.expires_in || 3600) / 60);
         console.log(`[BingAuth] Token refreshed. Valid for ~${expiresIn} min.`);
 
+        // Populate in-memory cache
+        _cache = { token: json.access_token, expiresAt: newExpiry.getTime() };
         return json.access_token;
     });
 }
