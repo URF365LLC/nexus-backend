@@ -50,7 +50,6 @@ export default function ReportsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [briefOffer, setBriefOffer] = useState<{ id: string; name: string; vertical: string; tier: string } | null>(null);
-  const [projectsMap, setProjectsMap] = useState<Record<string, any>>({});
 
   useEffect(() => {
     const fetchReports = async () => {
@@ -59,15 +58,6 @@ export default function ReportsPage() {
         const json = await res.json();
         if (json.success) {
           setReports(json.data);
-          
-          // Fetch associated studio projects to link them
-          const projectsRes = await fetch('/api/nexus/studio/projects/all');
-          const projectsJson = await projectsRes.json();
-          if (projectsJson.success) {
-            const map: Record<string, any> = {};
-            projectsJson.data.forEach((p: any) => { map[p.offer_id] = p; });
-            setProjectsMap(map);
-          }
         } else {
           setError(json.error || 'Failed to load reports');
         }
@@ -146,11 +136,8 @@ export default function ReportsPage() {
                   animate={{ opacity: 1 }}
                   transition={{ delay: Math.min(i * 0.04, 0.5) }}
                   onClick={() => {
-                    const project = projectsMap[report.offer_id];
-                    if (project) {
-                       window.location.href = `/studio/${project.id}`;
-                    } else if (report.status === 'completed') {
-                       setBriefOffer({ id: report.offer_id, name: report.offer_name, vertical: report.vertical, tier: report.tier });
+                    if (report.status === 'completed') {
+                      setBriefOffer({ id: report.offer_id, name: report.offer_name, vertical: report.vertical, tier: report.tier });
                     }
                   }}
                   className={cn(
@@ -198,15 +185,6 @@ export default function ReportsPage() {
                     {report.status}
                   </span>
 
-                  {/* Studio Link Button (High Intensity) */}
-                  {report.status === 'completed' && (
-                    <div className="shrink-0">
-                       <button className="px-3 py-1.5 rounded-lg bg-primary/20 hover:bg-primary text-primary hover:text-black text-[9px] font-bold uppercase tracking-widest transition-all flex items-center gap-1.5 border border-primary/20">
-                          <Layout size={10} />
-                          Launch Studio
-                       </button>
-                    </div>
-                  )}
 
                   {/* Time */}
                   <div className="text-[10px] text-gray-600 font-mono flex items-center gap-1 shrink-0 w-20 justify-end">

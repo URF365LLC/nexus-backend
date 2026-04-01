@@ -30,7 +30,17 @@ async function proxyRequest(
     init.body = await request.text();
   }
 
-  const upstream = await fetch(upstreamUrl, init);
+  let upstream: Response;
+  try {
+    upstream = await fetch(upstreamUrl, init);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Backend unreachable';
+    return Response.json(
+      { success: false, error: `Backend offline: ${message}` },
+      { status: 503 }
+    );
+  }
+
   const body = await upstream.text();
 
   return new Response(body, {
