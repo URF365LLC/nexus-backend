@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Sparkles, ArrowLeft, Clock, CheckCircle2, AlertTriangle, Loader2 } from 'lucide-react';
+import { Sparkles, ArrowLeft, Clock, CheckCircle2, AlertTriangle, Loader2, Layout } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import GlassCard from '@/components/GlassCard';

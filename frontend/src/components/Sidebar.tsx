@@ -20,10 +20,10 @@ export default function Sidebar() {
   return (
     <aside className="fixed left-0 top-0 bottom-0 w-[var(--sidebar-w)] glass border-r-0 z-50 p-6 flex flex-col">
       <div className="flex items-center gap-3 mb-10 px-2">
-        <div className="w-8 h-8 rounded-lg bg-primary/20 border border-primary/30 flex items-center justify-center">
-          <Zap size={18} className="text-primary fill-primary" />
+        <div class="w-8 h-8 rounded-lg bg-primary/20 border border-primary/30 flex items-center justify-center">
+          <Sparkles size={18} className="text-primary fill-primary" />
         </div>
-        <span className="text-xl font-bold tracking-tighter text-white">NEXUS</span>
+        <span className="text-xl font-bold tracking-tighter text-white">KOMEDIA</span>
       </div>
 
       <nav className="space-y-1 flex-1">
