@@ -1,103 +1,91 @@
 'use client';
 
-import React, { useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { motion } from 'framer-motion';
-import { Zap, ShieldCheck, Lock } from 'lucide-react';
-import { toast } from 'sonner';
-import { useRouter } from 'next/navigation';
+import { Sparkles, AlertCircle } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
 
-export default function LoginPage() {
-  const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const router = useRouter();
+function LoginContent() {
+  const searchParams = useSearchParams();
+  const error = searchParams.get('error');
+  const errorDetails = searchParams.get('details');
+  const errorMsg = searchParams.get('msg');
+  const [isRedirecting, setIsRedirecting] = useState(!error);
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-
-    try {
-      const res = await fetch('/api/auth', {
-        method: 'POST',
-        body: JSON.stringify({ password }),
-        headers: { 'Content-Type': 'application/json' },
-      });
-
-      const data = await res.json();
-
-      if (data.success) {
-        toast.success('Authentication successful. Welcome, Operator.');
-        router.push('/');
-      } else {
-        toast.error('Invalid credentials. Access denied.');
-      }
-    } catch (err) {
-      toast.error('Authentication service offline.');
-    } finally {
-      setLoading(false);
+  useEffect(() => {
+    if (error) {
+      setIsRedirecting(false);
+      return;
     }
-  };
+
+    // Automatically redirect to Casdoor SSO
+    const casdoorUrl = process.env.NEXT_PUBLIC_CASDOOR_URL;
+    const clientId = process.env.NEXT_PUBLIC_CASDOOR_CLIENT_ID;
+
+    if (casdoorUrl && clientId) {
+      const redirectUri = encodeURIComponent(`${window.location.origin}/callback`);
+      const state = encodeURIComponent('/');
+      const loginUrl = `${casdoorUrl}/login/oauth/authorize?client_id=${clientId}&response_type=code&redirect_uri=${redirectUri}&scope=read&state=${state}`;
+      window.location.href = loginUrl;
+    }
+  }, [error]);
 
   return (
-    <div className="min-h-screen bg-[#05070a] text-white flex items-center justify-center p-6 relative overflow-hidden">
-      {/* Background Decor */}
+    <div className="flex flex-col items-center gap-6 text-center z-10 p-8 rounded-2xl bg-black/40 border border-white/5 backdrop-blur-xl">
+      <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/20 border border-primary/30">
+        <Sparkles className="text-primary" size={32} />
+      </div>
+      <h1 className="text-3xl font-bold tracking-tight font-heading">KOMEDIA</h1>
+      
+      {error ? (
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="mt-4 p-4 border border-red-500/30 bg-red-500/10 rounded-xl max-w-md text-left"
+        >
+          <div className="flex items-center gap-2 mb-2">
+            <AlertCircle className="text-red-400 h-5 w-5" />
+            <h3 className="font-semibold text-red-100">Authentication Failed</h3>
+          </div>
+          <p className="text-sm text-red-200/80 mb-3">
+            Code: {error}
+          </p>
+          {(errorDetails || errorMsg) && (
+            <div className="bg-black/50 p-3 rounded text-xs font-mono text-red-300 break-words overflow-hidden">
+              {errorMsg || errorDetails}
+            </div>
+          )}
+          <button 
+            onClick={() => window.location.href = '/login'}
+            className="mt-4 w-full py-2 bg-white/10 hover:bg-white/20 transition-colors rounded text-sm font-medium"
+          >
+            Try Again
+          </button>
+        </motion.div>
+      ) : (
+        <>
+          <p className="text-gray-400 text-sm uppercase tracking-widest">Redirecting to Identity System...</p>
+          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mt-4" />
+        </>
+      )}
+    </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <div className="min-h-screen bg-[#05070a] text-white flex flex-col items-center justify-center p-6 relative overflow-hidden">
       <div className="absolute inset-0 stellar-grid opacity-20" />
       <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] bg-primary/10 blur-[120px] rounded-full" />
       <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] bg-indigo-500/10 blur-[120px] rounded-full" />
 
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md"
-      >
-        <div className="text-center mb-10">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/20 border border-primary/30 mb-6 relative group">
-            <Zap className="text-primary fill-primary group-hover:scale-110 transition-transform" size={32} />
-            <div className="absolute inset-0 bg-primary/20 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
-          </div>
-          <h1 className="text-3xl font-bold tracking-tight mb-2 font-heading">NEXUS</h1>
-          <p className="text-gray-500 text-sm font-medium tracking-wide uppercase">Intelligence Platform · Secure Gate</p>
-        </div>
+      <Suspense fallback={<div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />}>
+        <LoginContent />
+      </Suspense>
 
-        <div className="bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-3xl p-8 shadow-2xl relative overflow-hidden">
-          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
-          
-          <div className="mb-8 flex items-center gap-3 p-4 rounded-xl bg-blue-500/5 border border-blue-500/10">
-            <ShieldCheck className="text-primary" size={20} />
-            <div className="text-[11px] font-bold text-blue-200/60 uppercase tracking-widest leading-none">
-              Internal Company Use Only
-            </div>
-          </div>
-
-          <form onSubmit={handleLogin} className="space-y-6">
-            <div className="space-y-2">
-              <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest ml-1">Access Protocol</label>
-              <div className="relative">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600" size={18} />
-                <input 
-                  type="password" 
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter Operator Password"
-                  required
-                  className="w-full bg-white/[0.02] border border-white/5 rounded-xl py-4 pl-12 pr-4 text-sm focus:outline-none focus:border-primary/50 focus:bg-white/[0.05] transition-all placeholder:text-gray-700"
-                />
-              </div>
-            </div>
-
-            <button 
-              type="submit"
-              disabled={loading}
-              className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-4 rounded-xl shadow-[0_0_20px_rgba(59,130,246,0.3)] hover:shadow-[0_0_30px_rgba(59,130,246,0.5)] transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm tracking-wide"
-            >
-              {loading ? 'Verifying...' : 'Establish Link'}
-            </button>
-          </form>
-        </div>
-
-        <p className="text-center mt-8 text-[10px] text-gray-600 font-bold uppercase tracking-widest">
-          © 2026 KnockOut Media Ltd. Co.
-        </p>
-      </motion.div>
+      <p className="absolute bottom-8 text-[10px] text-gray-600 font-bold uppercase tracking-widest">
+        © 2026 Komedia Ltd. Co.
+      </p>
     </div>
   );
 }

@@ -40,7 +40,7 @@ async function researchOffer(offer, score) {
         `Focus on actionable affiliate/PPC intelligence, not general information.`,
     ].join(' ');
 
-    console.log(`  [Research] Querying Perplexity for: ${offer.name}`);
+    console.info(`  [Research] Querying Perplexity for: ${offer.name}`);
     const start = Date.now();
 
     try {
@@ -85,7 +85,7 @@ async function researchOffer(offer, score) {
             summary,
         ]);
 
-        console.log(`  [Research] Done (${elapsedMs}ms, ${inputTokens}+${outTokens} tokens)`);
+        console.info(`  [Research] Done (${elapsedMs}ms, ${inputTokens}+${outTokens} tokens)`);
         return summary;
 
     } catch (err) {
@@ -93,6 +93,15 @@ async function researchOffer(offer, score) {
         console.error(`  [Research] Perplexity failed: ${msg}`);
         return null; // Non-fatal — Claude can still run without research
     }
+}
+
+// ── Format keyword section for prompt ────────────────────────────────────────
+function formatKeywordSection(kwData) {
+    const kws = kwData?.keywords_by_intent || [];
+    if (!kws.length) return '- No validated keyword data available yet';
+    return kws.map(kw =>
+        `  • [${kw.intent}] "${kw.keyword}" — vol:${kw.avg_monthly_searches} comp:${kw.competition_level} bid:$${kw.suggested_bid || '?'}`
+    ).join('\n');
 }
 
 // ── Build Claude prompt ───────────────────────────────────────────────────────
@@ -134,12 +143,7 @@ function buildPrompt(offer, score, kwData, geoList, research) {
 - Avg CPC: ${avgCpc}
 - Total monthly search volume: ${kwVolume}
 - Avg competition index: ${kwData?.avg_competition ? (parseFloat(kwData.avg_competition) * 100).toFixed(0) + '%' : 'no data'}
-${(() => {
-    const kws = kwData?.keywords_by_intent || [];
-    if (!kws.length) return '- No validated keyword data available yet';
-    const fmt = kw => `  • [${kw.intent}] "${kw.keyword}" — vol:${kw.avg_monthly_searches} comp:${kw.competition_level} bid:$${kw.suggested_bid || '?'}`;
-    return kws.map(fmt).join('\n');
-})()}
+${formatKeywordSection(kwData)}
 
 ## LIVE MARKET RESEARCH (Perplexity)
 ${research || 'Research unavailable — base analysis on offer data only.'}
@@ -186,7 +190,7 @@ Return only the JSON object. No preamble, no explanation outside the JSON.`;
 
 // ── Stage 2: Claude synthesis ─────────────────────────────────────────────────
 async function synthesizeReport(offer, score, kwData, geoList, research) {
-    console.log(`  [Synthesis] Calling Claude for: ${offer.name}`);
+    console.info(`  [Synthesis] Calling Claude for: ${offer.name}`);
     const start = Date.now();
 
     const prompt = buildPrompt(offer, score, kwData, geoList, research);
@@ -220,7 +224,7 @@ async function synthesizeReport(offer, score, kwData, geoList, research) {
         console.error('  [Synthesis] JSON string (first 500):', jsonStr.slice(0, 500));
         throw new Error('Failed to parse Claude JSON: ' + e.message);
     }
-    console.log(`  [Synthesis] Done (${elapsedMs}ms, ${inputTokens}+${outputTokens} tokens)`);
+    console.info(`  [Synthesis] Done (${elapsedMs}ms, ${inputTokens}+${outputTokens} tokens)`);
 
     return { parsed, elapsedMs, inputTokens, outputTokens };
 }
@@ -288,7 +292,7 @@ ${parsed.section_positioning}
 
 ---
 
-### ⚡ Go / No-Go Verdict
+### Go / No-Go Verdict
 ${parsed.section_go_no_go}
 
 ---
@@ -397,7 +401,7 @@ async function storeReport(offer, score, parsed, fullMd, elapsedMs, inputTokens,
 
 // ── Generate report for one offer ────────────────────────────────────────────
 async function generateOfferReport(offer) {
-    console.log(`\n[ReportEngine] Processing: ${offer.name}`);
+    console.info(`\n[ReportEngine] Processing: ${offer.name}`);
 
     // Mark as generating so the UI can show in-progress state.
     // The caller's catch block is responsible for flipping to 'failed' on error.
@@ -415,7 +419,7 @@ async function generateOfferReport(offer) {
         SELECT s.*, s.id as score_id
         FROM offer_scores s WHERE s.offer_id = $1
     `, [offer.id]);
-    if (!score) { console.log('  No score found — skipping'); return null; }
+    if (!score) { console.warn(`  [ReportEngine] No score found for offer ${offer.id} — skipping`); return null; }
 
     // Load keyword summary (aggregate stats)
     const kwData = await db.get(`
@@ -446,8 +450,8 @@ async function generateOfferReport(offer) {
         LIMIT 30
     `, [offer.id]);
 
-    // Attach structured keyword data to kwData for prompt builder
-    kwData.keywords_by_intent = kwByIntent;
+    // Merge keyword data immutably for prompt builder
+    const enrichedKwData = kwData ? { ...kwData, keywords_by_intent: kwByIntent } : { keywords_by_intent: kwByIntent };
 
     // Load geo list
     const geoRows = await db.all(`SELECT country_code FROM mb_offer_geo WHERE offer_id = $1`, [offer.id]);
@@ -458,7 +462,7 @@ async function generateOfferReport(offer) {
 
     // Stage 2: Claude synthesis
     const { parsed, elapsedMs, inputTokens, outputTokens } =
-        await synthesizeReport(offer, score, kwData, geoList, research);
+        await synthesizeReport(offer, score, enrichedKwData, geoList, research);
 
     // Assemble markdown
     const fullMd = buildMarkdownReport(offer, score, parsed);
@@ -470,7 +474,7 @@ async function generateOfferReport(offer) {
         parseFloat(score.confidence_score) || 50,
     );
 
-    console.log(`  [ReportEngine] Report stored — ID: ${reportId}`);
+    console.info(`  [ReportEngine] Report stored — ID: ${reportId}`);
     return reportId;
 }
 
@@ -478,7 +482,7 @@ async function generateOfferReport(offer) {
 async function generateAllReports(options = {}) {
     const { forceRegenerate = false, limit = 50 } = options;
 
-    console.log('[ReportEngine] Starting report generation...');
+    console.info('[ReportEngine] Starting report generation...');
 
     // Flip any records stuck in 'generating' for > 15 minutes to 'failed'.
     // These are reports where the process crashed or was killed mid-run.
@@ -489,7 +493,7 @@ async function generateAllReports(options = {}) {
           AND updated_at < NOW() - INTERVAL '15 minutes'
     `).catch(err => console.error('[ReportEngine] Stuck watchdog failed:', err.message));
     if (stuck?.rowCount > 0) {
-        console.log(`[ReportEngine] Flipped ${stuck.rowCount} stuck 'generating' record(s) to 'failed'`);
+        console.warn(`[ReportEngine] Flipped ${stuck.rowCount} stuck 'generating' record(s) to 'failed'`);
     }
 
     const freshCutoff = forceRegenerate
@@ -514,7 +518,7 @@ async function generateAllReports(options = {}) {
         LIMIT $2
     `, [freshCutoff, limit]);
 
-    console.log(`[ReportEngine] ${offers.length} offers need reports`);
+    console.info(`[ReportEngine] ${offers.length} offers need reports`);
 
     let generated = 0;
     let failed    = 0;
@@ -540,7 +544,7 @@ async function generateAllReports(options = {}) {
         }
     }
 
-    console.log(`\n[ReportEngine] Done — ${generated} generated, ${failed} failed`);
+    console.info(`\n[ReportEngine] Done — ${generated} generated, ${failed} failed`);
 
     await db.run(`
         INSERT INTO sys_sync_jobs
