@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Sparkles, ArrowLeft, Clock, CheckCircle2, AlertTriangle, Loader2, Wand2 } from 'lucide-react';
+import { Sparkles, ArrowLeft, Clock, CheckCircle, AlertTriangle, Loader2, Wand2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import GlassCard from '@/components/GlassCard';
@@ -179,7 +179,7 @@ export default function ReportsPage() {
                     "px-2.5 py-1 rounded-full text-[9px] font-bold uppercase border shrink-0 flex items-center gap-1.5",
                     statusStyle[report.status]
                   )}>
-                    {report.status === 'completed' && <CheckCircle2 size={10} />}
+                    {report.status === 'completed' && <CheckCircle size={10} />}
                     {report.status === 'generating' && <Loader2 size={10} className="animate-spin" />}
                     {report.status === 'failed' && <AlertTriangle size={10} />}
                     {report.status}
@@ -189,7 +189,7 @@ export default function ReportsPage() {
                   {/* Read link */}
                   {report.status === 'completed' && (
                     <Link
-                      href="/reports"
+                      href={`/reports/${report.offer_id}`}
                       onClick={e => e.stopPropagation()}
                       className="shrink-0 text-[10px] font-bold text-primary hover:text-white transition-colors"
                     >

@@ -37,6 +37,7 @@ export default function OfferBriefDrawer({ offer, onClose }: OfferBriefDrawerPro
   const [projects, setProjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [creatingProject, setCreatingProject] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
   const [error, setError] = useState(false);
 
   useEffect(() => {
@@ -78,29 +79,30 @@ export default function OfferBriefDrawer({ offer, onClose }: OfferBriefDrawerPro
   const handleCreateProject = async (persona: string, vibe: string) => {
     if (!offer) return;
     setCreatingProject(true);
+    setCreateError(null);
     try {
       const res = await fetch('/api/nexus/studio/projects', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Api-Key': 'nexus_internal_key' // Should come from secure context
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           offerId: offer.id,
           name: `${offer.name} - ${persona} Strategy`,
           persona,
           vibe,
-          alphaKeywords: [] // Optional: could pull from report
+          alphaKeywords: []
         })
       });
 
       const json = await res.json();
       if (json.success) {
-        setProjects([json.data, ...projects]);
+        setProjects(prev => [json.data, ...prev]);
         setActiveTab('studio');
+      } else {
+        setCreateError(json.error || 'Failed to create project.');
       }
     } catch (err) {
       console.error(err);
+      setCreateError('Failed to create project. Please try again.');
     } finally {
       setCreatingProject(false);
     }
@@ -315,6 +317,9 @@ export default function OfferBriefDrawer({ offer, onClose }: OfferBriefDrawerPro
                           >
                             {creatingProject ? 'Initializing...' : 'Start Studio Session'}
                           </button>
+                          {createError && (
+                            <p className="text-red-400 text-[10px] text-center mt-2">{createError}</p>
+                          )}
                         </div>
                       )}
                     </div>
