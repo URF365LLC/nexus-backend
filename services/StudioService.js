@@ -37,11 +37,27 @@ class StudioService {
     }
 
     /**
+     * Update project status
+     */
+    static async updateStatus(projectId, status) {
+        await db.run('UPDATE studio_projects SET status = $1, updated_at = NOW() WHERE id = $2', [status, projectId]);
+    }
+
+    /**
      * Trigger AI Blueprint Generation
      */
     static async generateBlueprint(projectId) {
-        console.log(`[Studio] Requesting blueprint for project: ${projectId}`);
-        return await BlueprintService.generate(projectId);
+        console.info(`[Studio Engine] Initiating strategy synthesis for: ${projectId}`);
+        try {
+            await this.updateStatus(projectId, 'generating');
+            const blueprint = await BlueprintService.generate(projectId);
+            await this.updateStatus(projectId, 'ready');
+            return blueprint;
+        } catch (err) {
+            console.error(`[Studio Engine] Strategy synthesis failed: ${err.message}`);
+            await this.updateStatus(projectId, 'failed');
+            throw err;
+        }
     }
 
     /**
@@ -49,15 +65,37 @@ class StudioService {
      */
     static async generateInitialDraft(projectId) {
         const blueprint = await db.get('SELECT * FROM studio_blueprints WHERE project_id = $1', [projectId]);
-        if (!blueprint) throw new Error('No blueprint found to draft from');
+        if (!blueprint) throw new Error('No blueprint found to draft from. Please generate strategy first.');
 
-        // Initial layout structure
+        const results = blueprint.results || {};
+        const copyMatrix = results.copy_matrix || {};
+
+        // Initial layout structure with robust fallbacks
         const layoutData = {
             sections: [
-                { id: 'sec-1', type: 'hero', content: { headline: blueprint.results.copy_matrix?.headline || 'High Conversion Offer', subheadline: blueprint.results.copy_matrix?.subheadline || '' } },
-                { id: 'sec-2', type: 'social_proof', content: { text: 'Trusted by experts.' } },
-                { id: 'sec-3', type: 'features', content: { title: 'Core Benefits' } },
-                { id: 'sec-4', type: 'cta', content: { buttonText: 'Get Started Now' } }
+                { 
+                    id: `sec-${Date.now()}-1`, 
+                    type: 'hero', 
+                    content: { 
+                        headline: copyMatrix.headline || 'High-Fidelity Market Solution', 
+                        subheadline: copyMatrix.subheadline || 'Intelligence-driven deployment via Nexus Studio.' 
+                    } 
+                },
+                { 
+                    id: `sec-${Date.now()}-2`, 
+                    type: 'social_proof', 
+                    content: { text: 'Engineered for maximum conversion efficiency.' } 
+                },
+                { 
+                    id: `sec-${Date.now()}-3`, 
+                    type: 'features', 
+                    content: { title: 'Strategic Advantages' } 
+                },
+                { 
+                    id: `sec-${Date.now()}-4`, 
+                    type: 'cta', 
+                    content: { buttonText: 'Deploy Now' } 
+                }
             ]
         };
 
